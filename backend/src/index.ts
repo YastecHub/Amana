@@ -103,6 +103,6 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Amana API running on port ${PORT}`);
-  console.log(`📖 Swagger UI → http://localhost:${PORT}/api/docs`);
-  console.log(`📄 OpenAPI JSON → http://localhost:${PORT}/api/docs.json\n`);
+  console.log(`📖 Swagger UI → /api/docs`);
+  console.log(`📄 OpenAPI JSON → /api/docs.json\n`);
 });
