@@ -4,121 +4,167 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Starting seed...');
-
-  const passwordHash = await bcrypt.hash('admin123', 10);
-  const memberPasswordHash = await bcrypt.hash('member123', 10);
+  console.log('🌱 Seeding Amana database...');
 
   // 1. Create Admin User
+  const adminPasswordHash = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { phone: '08000000001' },
     update: {},
     create: {
-      name: 'Alhaji Musa Admin',
-      phone: '08000000001',
       role: 'admin',
-      passwordHash
-    }
+      name: 'Alhaji Musa Ibrahim',
+      phone: '08000000001',
+      passwordHash: adminPasswordHash,
+    },
   });
+  console.log('✓ Admin user created:', admin.name);
 
   // 2. Create Cooperative
-  let coop = await prisma.cooperative.findFirst({
-    where: { adminUserId: admin.id }
+  const cooperative = await prisma.cooperative.upsert({
+    where: { id: 'coop-amana-001' },
+    update: {},
+    create: {
+      id: 'coop-amana-001',
+      name: 'Amana Cooperative Society',
+      adminUserId: admin.id,
+      contributionAmount: 5000,
+      cycle: 'monthly',
+      maxLoanMultiple: 3,
+    },
   });
-
-  if (!coop) {
-    coop = await prisma.cooperative.create({
-      data: {
-        name: 'Amana Cooperative Society',
-        adminUserId: admin.id,
-        contributionAmount: 5000,
-        cycle: 'monthly',
-        maxLoanMultiple: 3
-      }
-    });
-  }
+  console.log('✓ Cooperative created:', cooperative.name);
 
   // 3. Create Demo Members
-  const demoUsers = [
-    { name: 'Fatima Bello', phone: '08000000002', accountNumber: '1234567890' },
-    { name: 'Oluwaseun Adeyemi', phone: '08000000003', accountNumber: '0987654321' }
+  const memberPassword = await bcrypt.hash('member123', 10);
+
+  const memberData = [
+    {
+      phone: '08000000002',
+      name: 'Fatima Bello',
+      accountRef: 'amana-fatima-001',
+      accountNumber: '9012345678',
+      bankName: 'Wema Bank',
+      contributions: 8,
+      months: 8,
+    },
+    {
+      phone: '08000000003',
+      name: 'Chukwuemeka Okafor',
+      accountRef: 'amana-emeka-001',
+      accountNumber: '9087654321',
+      bankName: 'Wema Bank',
+      contributions: 4,
+      months: 4,
+    },
+    {
+      phone: '08000000004',
+      name: 'Aminu Garba',
+      accountRef: 'amana-aminu-001',
+      accountNumber: '9011223344',
+      bankName: 'Wema Bank',
+      contributions: 12,
+      months: 14,
+    },
   ];
 
-  for (const [index, dUser] of demoUsers.entries()) {
-    const user = await prisma.user.upsert({
-      where: { phone: dUser.phone },
+  for (const md of memberData) {
+    const memberUser = await prisma.user.upsert({
+      where: { phone: md.phone },
       update: {},
       create: {
-        name: dUser.name,
-        phone: dUser.phone,
         role: 'member',
-        passwordHash: memberPasswordHash
-      }
+        name: md.name,
+        phone: md.phone,
+        passwordHash: memberPassword,
+      },
     });
 
-    let member = await prisma.member.findUnique({
-      where: { userId: user.id }
+    const member = await prisma.member.upsert({
+      where: { userId: memberUser.id },
+      update: {},
+      create: {
+        cooperativeId: cooperative.id,
+        userId: memberUser.id,
+        bvnStatus: 'mocked',
+        joinDate: new Date(Date.now() - md.months * 30 * 24 * 60 * 60 * 1000),
+        status: 'active',
+      },
     });
 
-    if (!member) {
-      member = await prisma.member.create({
-        data: {
-          userId: user.id,
-          cooperativeId: coop.id,
-          bvnStatus: 'verified',
-          joinDate: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90) // Joined 3 months ago
-        }
+    await prisma.virtualAccount.upsert({
+      where: { memberId: member.id },
+      update: {},
+      create: {
+        memberId: member.id,
+        monnifyAccountReference: md.accountRef,
+        accountNumber: md.accountNumber,
+        bankName: md.bankName,
+        bankCode: '035',
+      },
+    });
+
+    // Create contributions
+    for (let i = 0; i < md.contributions; i++) {
+      const ref = `mock-txn-${md.phone}-${i + 1}`;
+      const existing = await prisma.contribution.findUnique({
+        where: { monnifyTxnRef: ref },
       });
-    }
-
-    let virtualAcc = await prisma.virtualAccount.findUnique({
-      where: { memberId: member.id }
-    });
-
-    if (!virtualAcc) {
-      virtualAcc = await prisma.virtualAccount.create({
-        data: {
-          memberId: member.id,
-          monnifyAccountReference: \`ref-\${member.id}\`,
-          accountNumber: dUser.accountNumber,
-          bankName: 'Wema Bank',
-          bankCode: '035'
-        }
-      });
-    }
-
-    // Create 3 Contributions
-    const existingContribs = await prisma.contribution.count({
-      where: { memberId: member.id }
-    });
-
-    if (existingContribs === 0) {
-      for (let i = 1; i <= 3; i++) {
+      if (!existing) {
         await prisma.contribution.create({
           data: {
             memberId: member.id,
             amount: 5000,
-            monnifyTxnRef: \`mock-txn-\${user.id}-\${i}\`,
-            narration: \`Monthly contribution \${i}\`,
+            paidAt: new Date(Date.now() - (md.contributions - i) * 30 * 24 * 60 * 60 * 1000),
+            monnifyTxnRef: ref,
+            narration: `Monthly contribution - ${md.name}`,
             status: 'confirmed',
-            paidAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * i)
-          }
+          },
         });
       }
     }
 
-    // Calculate and save initial score
-    // Use the dynamic import equivalent for score calculation
-    const scoringModule = await import('../src/services/scoring');
-    await scoringModule.calculateMemberScore(member.id);
+    // Compute and save score for Aminu (most history)
+    if (md.name === 'Aminu Garba') {
+      // Give Aminu a loan history too
+      const loan = await prisma.loan.findFirst({ where: { memberId: member.id } });
+      if (!loan) {
+        const loanRecord = await prisma.loan.create({
+          data: {
+            memberId: member.id,
+            principal: 15000,
+            status: 'closed',
+            scoreAtDecision: 72,
+            breakdownJson: JSON.stringify({ note: 'seed loan' }),
+            disbursementRef: 'mock-disb-aminu-001',
+          },
+        });
+        await prisma.repayment.create({
+          data: {
+            loanId: loanRecord.id,
+            amount: 15000,
+            dueDate: new Date(Date.now() - 2 * 30 * 24 * 60 * 60 * 1000),
+            paidAt: new Date(Date.now() - 2 * 30 * 24 * 60 * 60 * 1000),
+            status: 'paid',
+          },
+        });
+      }
+    }
+
+    console.log(`✓ Member created: ${md.name} (${md.phone})`);
   }
 
-  console.log('Seed complete ✓');
+  console.log('\n✅ Seed complete!');
+  console.log('\n📋 Test credentials:');
+  console.log('  Admin:  08000000001 / admin123');
+  console.log('  Member: 08000000002 / member123');
+  console.log('  Member: 08000000003 / member123');
+  console.log('  Member: 08000000004 / member123');
 }
 
 main()
-  .catch(e => {
-    console.error(e);
+  .catch((e) => {
+    console.error('❌ Seed error:', e);
     process.exit(1);
   })
   .finally(async () => {

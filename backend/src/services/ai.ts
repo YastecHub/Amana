@@ -6,7 +6,7 @@ dotenv.config();
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
-export const generateLoanExplanation = async (data: {
+export interface LoanExplanationParams {
   memberName: string;
   score: number;
   band: string;
@@ -14,64 +14,92 @@ export const generateLoanExplanation = async (data: {
   loanAmount: number;
   availableLoan: number;
   isThinFile: boolean;
-}) => {
+}
+
+export async function generateLoanExplanation(data: LoanExplanationParams): Promise<string> {
+  const fallback = `Loan evaluation for ${data.memberName}: Credit score is ${data.score.toFixed(0)}/100 (Band ${data.band}). ` +
+    `Requested: NGN ${data.loanAmount.toLocaleString()}, Maximum available: NGN ${data.availableLoan.toLocaleString()}. ` +
+    (data.isThinFile ? 'Note: This is a provisional score as the member has no prior loan history.' : '');
+
   if (!genAI) {
-    return \`Loan request evaluated for \${data.memberName}. Score: \${data.score} (Band \${data.band}). Requested: \${data.loanAmount}, Available: \${data.availableLoan}. Explanation unavailable due to missing AI configuration.\`;
+    console.warn('[AI] No Gemini API key — returning fallback explanation');
+    return fallback;
   }
 
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const prompt = \`
-You are a cooperative lending assistant. Use ONLY the provided data. Do not invent scores or facts. Write in clear, friendly English suitable for a Nigerian cooperative admin. Explain the loan decision logically.
 
-Data:
-- Member Name: \${data.memberName}
-- Score: \${data.score.toFixed(2)} / 100
-- Band: \${data.band}
-- Is Thin File (No previous loans): \${data.isThinFile ? 'Yes' : 'No'}
-- Requested Loan Amount: NGN \${data.loanAmount}
-- Max Available Loan Amount: NGN \${data.availableLoan}
-- Score Breakdown: \${JSON.stringify(data.breakdown)}
+    const breakdownText = Object.entries(data.breakdown)
+      .map(([key, val]: [string, any]) =>
+        `  - ${val.label}: ${val.raw}% raw → ${val.score} points (weight ${val.weight}%)`
+      )
+      .join('\n');
 
-Please provide a 2-3 paragraph plain-language explanation of the member's credit score and whether this loan should be approved based on the requested amount versus the available amount.
-\`;
+    const prompt = [
+      'You are a cooperative lending assistant. Use ONLY the data provided below.',
+      'Do not invent scores or facts. Write in clear, friendly English suitable for a Nigerian cooperative admin.',
+      'Explain the credit score and loan decision in 2-3 readable paragraphs.',
+      '',
+      'MEMBER DATA:',
+      `Name: ${data.memberName}`,
+      `Credit Score: ${data.score.toFixed(0)} / 100 (Band ${data.band})`,
+      `Thin File (no prior loan history): ${data.isThinFile ? 'Yes - weights redistributed' : 'No'}`,
+      `Requested Loan Amount: NGN ${data.loanAmount.toLocaleString()}`,
+      `Maximum Available Loan: NGN ${data.availableLoan.toLocaleString()}`,
+      `Decision: ${data.loanAmount <= data.availableLoan ? 'ELIGIBLE' : 'NOT ELIGIBLE - exceeds capacity'}`,
+      '',
+      'SCORE BREAKDOWN:',
+      breakdownText,
+      '',
+      'Please write a plain-language explanation of why this member received this score and whether their loan request should be approved.',
+    ].join('\n');
 
     const result = await model.generateContent(prompt);
     return result.response.text();
-  } catch (error) {
-    console.error('Error generating AI explanation', error);
-    return 'Error generating explanation.';
+  } catch (error: any) {
+    console.error('[AI] Explanation error:', error.message);
+    return fallback;
   }
-};
+}
 
-export const answerAssistantQuery = async (question: string, context: {
+export interface AssistantContext {
   cooperative: any;
   members: any[];
   recentContributions: any[];
   recentLoans: any[];
-}) => {
+}
+
+export async function answerAssistantQuery(question: string, context: AssistantContext): Promise<string> {
+  const fallback = "I'm unable to answer right now — AI capabilities are offline (no API key configured). " +
+    "Please check your GEMINI_API_KEY in the .env file.";
+
   if (!genAI) {
-    return "I'm sorry, my AI capabilities are currently offline because the API key is not configured.";
+    console.warn('[AI] No Gemini API key — returning fallback assistant response');
+    return fallback;
   }
 
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const prompt = \`
-You are a helpful assistant for the Amana cooperative platform. Answer ONLY using the provided cooperative data. If the answer is not in the data, say so clearly. Be concise.
 
-Context Data:
-Cooperative Info: \${JSON.stringify(context.cooperative)}
-Members (\${context.members.length}): \${JSON.stringify(context.members)}
-Recent Contributions: \${JSON.stringify(context.recentContributions)}
-Recent Loans: \${JSON.stringify(context.recentLoans)}
-
-User Question: \${question}
-\`;
+    const prompt = [
+      'You are a helpful assistant for the Amana cooperative credit platform.',
+      'Answer ONLY using the provided cooperative data below.',
+      'If the answer is not in the data, say so clearly. Be concise and factual.',
+      'Do not invent member details, scores, or amounts.',
+      '',
+      'COOPERATIVE DATA:',
+      `Cooperative: ${JSON.stringify(context.cooperative, null, 2)}`,
+      `Members (${context.members.length} shown): ${JSON.stringify(context.members, null, 2)}`,
+      `Recent Contributions: ${JSON.stringify(context.recentContributions, null, 2)}`,
+      `Recent Loans: ${JSON.stringify(context.recentLoans, null, 2)}`,
+      '',
+      `ADMIN QUESTION: ${question}`,
+    ].join('\n');
 
     const result = await model.generateContent(prompt);
     return result.response.text();
-  } catch (error) {
-    console.error('Error generating AI assistant answer', error);
-    return 'Sorry, I encountered an error while trying to answer your question.';
+  } catch (error: any) {
+    console.error('[AI] Assistant error:', error.message);
+    return 'Sorry, I encountered an error while processing your question. Please try again.';
   }
-};
+}

@@ -1,10 +1,34 @@
 import prisma from '../lib/prisma';
 
 export interface ScoreBreakdown {
-  repaymentReliability: { score: number; weight: number; raw: number; label: string };
-  contributionConsistency: { score: number; weight: number; raw: number; label: string };
-  membershipTenure: { score: number; weight: number; raw: number; label: string };
-  savingsDepth: { score: number; weight: number; raw: number; label: string };
+  repaymentReliability: {
+    score: number;
+    weight: number;
+    raw: number;
+    label: string;
+    details: string;
+  };
+  contributionConsistency: {
+    score: number;
+    weight: number;
+    raw: number;
+    label: string;
+    details: string;
+  };
+  membershipTenure: {
+    score: number;
+    weight: number;
+    raw: number;
+    label: string;
+    details: string;
+  };
+  savingsDepth: {
+    score: number;
+    weight: number;
+    raw: number;
+    label: string;
+    details: string;
+  };
 }
 
 export interface ScoreResult {
@@ -12,138 +36,220 @@ export interface ScoreResult {
   band: 'A' | 'B' | 'C' | 'D';
   label: string;
   breakdown: ScoreBreakdown;
+  maxLoanMultiple: number;
   maxLoan: number;
   availableLoan: number;
   totalSavings: number;
   isThinFile: boolean;
 }
 
-export const calculateMemberScore = async (memberId: string): Promise<ScoreResult> => {
-  const member = await prisma.member.findUnique({
+function getBand(score: number): 'A' | 'B' | 'C' | 'D' {
+  if (score >= 80) return 'A';
+  if (score >= 60) return 'B';
+  if (score >= 40) return 'C';
+  return 'D';
+}
+
+function getLoanMultiple(band: 'A' | 'B' | 'C' | 'D'): number {
+  switch (band) {
+    case 'A': return 3;
+    case 'B': return 2;
+    case 'C': return 1;
+    case 'D': return 0;
+  }
+}
+
+function monthsBetween(start: Date, end: Date): number {
+  const months =
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth());
+  return Math.max(0, months);
+}
+
+export async function computeScore(memberId: string): Promise<ScoreResult> {
+  const now = new Date();
+
+  // Fetch all member data
+  const member = await prisma.member.findUniqueOrThrow({
     where: { id: memberId },
     include: {
-      contributions: true,
-      loans: { include: { repayments: true } },
-      cooperative: true
-    }
+      contributions: { orderBy: { paidAt: 'asc' } },
+      loans: {
+        include: { repayments: true },
+        where: { status: { not: 'requested' } }, // only loans with a decision
+      },
+      cooperative: true,
+    },
   });
 
-  if (!member) throw new Error('Member not found');
+  // --- Membership Tenure ---
+  const activeMonths = monthsBetween(new Date(member.joinDate), now);
+  const tenureRaw = Math.min(activeMonths, 24) / 24;
 
-  const now = new Date();
-  const joinDate = new Date(member.joinDate);
-  const monthsSinceJoin = Math.max(0, (now.getTime() - joinDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+  // --- Savings Depth ---
+  const totalSavings = member.contributions.reduce((sum, c) => sum + c.amount, 0);
+  const SAVINGS_BENCHMARK = 50000; // ₦50,000 = full score
+  const savingsRaw = Math.min(totalSavings / SAVINGS_BENCHMARK, 1.0);
 
-  const contributions = member.contributions.filter(c => c.status === 'confirmed');
-  const totalContributed = contributions.reduce((sum, c) => sum + c.amount, 0);
+  // --- Contribution Consistency ---
+  const expectedContributions = Math.max(1, activeMonths); // 1 per month
+  const actualContributions = member.contributions.length;
+  const consistencyRaw = Math.min(actualContributions / expectedContributions, 1.0);
 
-  const loans = member.loans;
-  const isThinFile = loans.length === 0;
+  // --- Repayment Reliability (thin-file detection) ---
+  const allRepayments = member.loans.flatMap((l) => l.repayments);
+  const repaidRepayments = allRepayments.filter(
+    (r) => r.status === 'paid' && r.paidAt !== null
+  );
+  const onTimeRepayments = repaidRepayments.filter((r) => {
+    if (!r.dueDate || !r.paidAt) return false;
+    return new Date(r.paidAt) <= new Date(r.dueDate);
+  });
 
-  // Defaults and weights
-  let weights = {
-    repayment: 0.35,
-    contribution: 0.35,
-    tenure: 0.15,
-    savings: 0.15
-  };
+  const isThinFile = allRepayments.length === 0;
+
+  let totalScore: number;
+  let breakdown: ScoreBreakdown;
 
   if (isThinFile) {
-    weights = {
-      repayment: 0,
-      contribution: 0.50,
-      tenure: 0.25,
-      savings: 0.25
+    // Thin-file: redistribute weights — no repayment factor
+    const consistencyScore = consistencyRaw * 50;
+    const tenureScore = tenureRaw * 25;
+    const savingsScore = savingsRaw * 25;
+    totalScore = Math.round(consistencyScore + tenureScore + savingsScore);
+
+    breakdown = {
+      repaymentReliability: {
+        score: 0,
+        weight: 0,
+        raw: 0,
+        label: 'Repayment Reliability',
+        details: 'No loan history yet',
+      },
+      contributionConsistency: {
+        score: Math.round(consistencyScore),
+        weight: 50,
+        raw: Math.round(consistencyRaw * 100),
+        label: 'Contribution Consistency',
+        details: `${actualContributions} of ${expectedContributions} expected contributions`,
+      },
+      membershipTenure: {
+        score: Math.round(tenureScore),
+        weight: 25,
+        raw: activeMonths,
+        label: 'Membership Tenure',
+        details: `${activeMonths} months active (24 = full score)`,
+      },
+      savingsDepth: {
+        score: Math.round(savingsScore),
+        weight: 25,
+        raw: Math.round(savingsRaw * 100),
+        label: 'Savings Depth',
+        details: `₦${totalSavings.toLocaleString()} saved (₦${SAVINGS_BENCHMARK.toLocaleString()} = full score)`,
+      },
+    };
+  } else {
+    // Full scoring with repayment history
+    const repaymentRaw =
+      allRepayments.length > 0 ? onTimeRepayments.length / allRepayments.length : 0;
+
+    const repaymentScore = repaymentRaw * 40;
+    const consistencyScore = consistencyRaw * 30;
+    const tenureScore = tenureRaw * 15;
+    const savingsScore = savingsRaw * 15;
+    totalScore = Math.round(repaymentScore + consistencyScore + tenureScore + savingsScore);
+
+    breakdown = {
+      repaymentReliability: {
+        score: Math.round(repaymentScore),
+        weight: 40,
+        raw: Math.round(repaymentRaw * 100),
+        label: 'Repayment Reliability',
+        details: `${onTimeRepayments.length} of ${allRepayments.length} repayments on time`,
+      },
+      contributionConsistency: {
+        score: Math.round(consistencyScore),
+        weight: 30,
+        raw: Math.round(consistencyRaw * 100),
+        label: 'Contribution Consistency',
+        details: `${actualContributions} of ${expectedContributions} expected contributions`,
+      },
+      membershipTenure: {
+        score: Math.round(tenureScore),
+        weight: 15,
+        raw: activeMonths,
+        label: 'Membership Tenure',
+        details: `${activeMonths} months active (24 = full score)`,
+      },
+      savingsDepth: {
+        score: Math.round(savingsScore),
+        weight: 15,
+        raw: Math.round(savingsRaw * 100),
+        label: 'Savings Depth',
+        details: `₦${totalSavings.toLocaleString()} saved (₦${SAVINGS_BENCHMARK.toLocaleString()} = full score)`,
+      },
     };
   }
 
-  // 1. Repayment Reliability
-  let repaymentScore = 0;
-  let repaymentRaw = 0;
-  if (!isThinFile) {
-    let totalRepayments = 0;
-    let onTimeRepayments = 0;
+  const band = getBand(totalScore);
+  const maxLoanMultiple = getLoanMultiple(band);
+  const maxLoan = maxLoanMultiple * totalSavings;
 
-    loans.forEach(loan => {
-      loan.repayments.forEach(rep => {
-        totalRepayments++;
-        if (rep.status === 'paid' || rep.paidAt) {
-          onTimeRepayments++; // Simplified: assuming paid is on time for now
-        }
-      });
-    });
+  // Outstanding loan balance
+  const activeLoans = await prisma.loan.findMany({
+    where: {
+      memberId,
+      status: { in: ['approved', 'disbursed', 'repaying'] },
+    },
+    include: { repayments: true },
+  });
 
-    if (totalRepayments > 0) {
-      repaymentRaw = onTimeRepayments / totalRepayments;
-      repaymentScore = repaymentRaw * 100 * weights.repayment;
-    }
-  }
+  const outstandingBalance = activeLoans.reduce((sum, loan) => {
+    const repaid = loan.repayments
+      .filter((r) => r.status === 'paid')
+      .reduce((s, r) => s + r.amount, 0);
+    return sum + (loan.principal - repaid);
+  }, 0);
 
-  // 2. Contribution Consistency
-  const expectedContributions = Math.max(1, Math.floor(monthsSinceJoin));
-  let contributionRaw = Math.min(contributions.length / expectedContributions, 1.0);
-  const contributionScore = contributionRaw * 100 * weights.contribution;
+  const availableLoan = Math.max(0, maxLoan - outstandingBalance);
 
-  // 3. Membership Tenure
-  const tenureRaw = Math.min(monthsSinceJoin, 24) / 24;
-  const tenureScore = tenureRaw * 100 * weights.tenure;
+  const label = isThinFile ? 'Provisional — building history' : '';
 
-  // 4. Savings Depth
-  const savingsRaw = Math.min(totalContributed / 50000, 1.0);
-  const savingsScore = savingsRaw * 100 * weights.savings;
-
-  const totalScoreValue = repaymentScore + contributionScore + tenureScore + savingsScore;
-
-  let band: 'A' | 'B' | 'C' | 'D' = 'D';
-  if (totalScoreValue >= 80) band = 'A';
-  else if (totalScoreValue >= 60) band = 'B';
-  else if (totalScoreValue >= 40) band = 'C';
-
-  const maxLoanMultiple = band === 'A' ? 3 : band === 'B' ? 2 : band === 'C' ? 1 : 0;
-  
-  const outstandingLoanBalance = loans
-    .filter(l => ['disbursed', 'repaying', 'defaulted'].includes(l.status))
-    .reduce((sum, l) => {
-      const paid = l.repayments.filter(r => r.status === 'paid').reduce((s, r) => s + r.amount, 0);
-      return sum + (l.principal - paid); // Simplified: not accounting for interest
-    }, 0);
-
-  const availableLoan = Math.max(0, (maxLoanMultiple * totalContributed) - outstandingLoanBalance);
-
-  const breakdown: ScoreBreakdown = {
-    repaymentReliability: { score: repaymentScore, weight: weights.repayment, raw: repaymentRaw, label: 'Repayment Reliability' },
-    contributionConsistency: { score: contributionScore, weight: weights.contribution, raw: contributionRaw, label: 'Contribution Consistency' },
-    membershipTenure: { score: tenureScore, weight: weights.tenure, raw: tenureRaw, label: 'Membership Tenure' },
-    savingsDepth: { score: savingsScore, weight: weights.savings, raw: savingsRaw, label: 'Savings Depth' },
-  };
-
-  const result: ScoreResult = {
-    value: parseFloat(totalScoreValue.toFixed(2)),
-    band,
-    label: \`Band \${band} (\${totalScoreValue.toFixed(0)}/100)\`,
-    breakdown,
-    maxLoan: maxLoanMultiple * totalContributed,
-    availableLoan,
-    totalSavings: totalContributed,
-    isThinFile
-  };
-
+  // Persist score
   await prisma.score.create({
     data: {
-      memberId: member.id,
-      value: result.value,
-      band: result.band,
-      breakdownJson: JSON.stringify(result.breakdown),
-      label: result.label
-    }
+      memberId,
+      value: totalScore,
+      band,
+      breakdownJson: JSON.stringify(breakdown),
+      label,
+    },
   });
 
-  return result;
-};
+  return {
+    value: totalScore,
+    band,
+    label,
+    breakdown,
+    maxLoanMultiple,
+    maxLoan,
+    availableLoan,
+    totalSavings,
+    isThinFile,
+  };
+}
 
-export const getMemberScoreHistory = async (memberId: string) => {
+export async function getLatestScore(memberId: string) {
+  return prisma.score.findFirst({
+    where: { memberId },
+    orderBy: { computedAt: 'desc' },
+  });
+}
+
+export async function getMemberScoreHistory(memberId: string) {
   return prisma.score.findMany({
     where: { memberId },
-    orderBy: { computedAt: 'desc' }
+    orderBy: { computedAt: 'desc' },
+    take: 20,
   });
-};
+}

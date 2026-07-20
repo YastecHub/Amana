@@ -77,17 +77,8 @@ export interface Loan {
 
 export const auth = {
   login: async (phone: string, password: string) => {
-    // const res = await api.post('/auth/login', { phone, password });
-    // return res.data;
-    // MOCK FOR DEMO
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          token: 'mock-token',
-          user: { id: '1', name: 'Demo User', phone, role: phone === 'admin' ? 'admin' : 'member' }
-        });
-      }, 500);
-    });
+    const res = await api.post('/auth/login', { phone, password });
+    return res.data.data;
   }
 };
 

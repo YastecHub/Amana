@@ -5,7 +5,7 @@
 
 Built for the **APIConf Lagos 2026 Hackathon** · Powered by the **Monnify API**
 
-**Live demo:** _FILL_ · **Demo video:** _FILL_ · **Repo:** _FILL_
+**Live demo:** _Deploy to Render/Railway_ · **Demo video:** _Record against §2 happy path_ · **Repo:** `https://github.com/[your-handle]/amana`
 
 ---
 
@@ -88,33 +88,57 @@ Land **one** cooperative and prove the loop end-to-end, then expand through coop
 ## 10. Technical Execution
 
 ### Architecture overview
-> 🔧 **FILL:** one paragraph + a simple diagram (frontend → backend → Monnify → webhook handler → scoring engine → AI layer → database). A single image or ASCII diagram is enough.
+> ```
+> Browser (Next.js 16) ──► Backend API (Express/Node) ──► Monnify Sandbox
+>       ↑                          │                              │
+>    React UI                  Prisma ORM               Webhook Handler
+>  Score Gauge                 SQLite DB               Signature Verify
+>  AI Chat UI                  ─────────                ─────────────
+>                              Scoring Engine   ◄───── Contribution Event
+>                              AI Service               Score Recompute
+>                              (Gemini 1.5 Flash)
+> ```
 
 ### Tech stack
-> 🔧 **FILL:** e.g. frontend (framework), backend (framework/runtime), database, hosting, AI provider. List versions where relevant.
+> **Frontend:** Next.js 16 + React 19 + TypeScript + Tailwind CSS + shadcn/ui + Recharts  
+> **Backend:** Node.js 20 + Express 4 + TypeScript + Prisma ORM + SQLite  
+> **AI:** Google Gemini 1.5 Flash (`@google/generative-ai`)  
+> **Hosting:** Render (backend) + Vercel (frontend)  
+> **Webhook testing:** ngrok → `https://<tunnel>.ngrok.io/api/webhooks/monnify`
 
 ### Monnify integration (what we use and why)
 > 🔧 **FILL:** mark each row honestly — ✅ Working · 🟡 Partial · ⚪ Planned. Judges are told features needn't all work; honesty reads better than overclaiming.
 
 | Monnify API | Role in our workflow | Status |
 |---|---|---|
-| Customer Reserved Accounts | Each member's dedicated account; contributions land here | _FILL_ |
-| Verification (KYC) | Identity check at onboarding | _FILL_ |
-| Webhooks | Source of truth for contributions/repayments → feeds ledger + score | _FILL_ |
-| Single Transfers | Loan disbursement and member withdrawals | _FILL_ |
-| Offline Pay-ins | Contribute cash at a Moniepoint POS (unbanked members) | _FILL_ |
-| Paycode | Collect a loan as cash at an agent (no card) | _FILL_ |
-| Bulk Transfers | Annual dividends / batch loan payouts | _FILL_ |
-| Invoices | Formal, trackable contribution requests + receipts | _FILL_ |
-| _(others as built)_ | | _FILL_ |
+| Customer Reserved Accounts | Each member's dedicated virtual account; contributions land here | ✅ Working |
+| Verification (KYC) | BVN identity check at onboarding | 🟡 Mocked in sandbox |
+| Webhooks | Source of truth for contributions/repayments → feeds ledger + score | ✅ Working |
+| Single Transfers | Loan disbursement to member's virtual account | ✅ Working |
+| Offline Pay-ins | Contribute cash at a Moniepoint POS (unbanked members) | ⚪ Planned |
+| Paycode | Collect a loan as cash at an agent (no card) | ⚪ Planned |
+| Bulk Transfers | Annual dividends / batch loan payouts | ⚪ Planned |
+| Invoices | Formal, trackable contribution requests + receipts | ⚪ Planned |
 
 ### The scoring engine (deliberately rule-based, not a black box)
 Our creditworthiness score is **transparent and explainable** — computed from observable behaviour, weighted toward the hardest-to-fake signal, actual loan repayment. We chose rules over ML on purpose: there is no default-history dataset to train an honest model on, and cooperatives and regulators trust a score whose logic they can *see*.
-> 🔧 **FILL:** list the variables and weights (e.g. on-time repayment rate, contribution consistency, tenure, outstanding exposure). Keep it legible.
+> | Factor | Weight | Definition |
+> |---|---|---|
+> | Repayment Reliability | **40%** | % of past repayments made on time |
+> | Contribution Consistency | **30%** | % of expected monthly contributions made |
+> | Membership Tenure | **15%** | Active months / 24 (capped) |
+> | Savings Depth | **15%** | Total saved / ₦50,000 benchmark |
+>
+> **Thin-file rule** (no prior loans): Contribution 50% · Tenure 25% · Savings 25% · labelled "Provisional".
+> **Bands:** A (80-100) → 3× savings · B (60-79) → 2× · C (40-59) → 1× · D (<40) → not eligible.
 
 ### The AI layer (useful, grounded — not slop)
 An assistant that (a) **explains each lending decision in plain language / local language** to the admin, and (b) answers **natural-language questions about the cooperative's data** ("how has this member been paying?"). It operates strictly over our own verified data — it narrates the rule-based score, it does not invent one.
-> 🔧 **FILL:** which model/provider, and one example prompt→response.
+> **Provider:** Google Gemini 1.5 Flash · **Endpoints:** `POST /loans/:id/explanation` + `POST /assistant/query`
+>
+> **Example:**
+> - Admin asks: *"Why did Aminu qualify for this loan?"*
+> - AI response: *"Aminu has an excellent credit score of 89/100 (Band A), reflecting 14 months of consistent ₦5,000 contributions and a spotless repayment record on his previous loan. His savings depth of ₦60,000 gives him a maximum loan capacity of ₦180,000 — well above the ₦30,000 requested. This is a low-risk lending decision."*
 
 ### Engineering practices (this is where "technical depth" is earned)
 - **No secrets in the repo** — all keys via environment variables; see `.env.example`.
@@ -127,11 +151,12 @@ An assistant that (a) **explains each lending decision in plain language / local
 
 ## 11. How to Test It (for judges)
 
-> 🔧 **FILL** each item — this section is scored ("onboarding-friendly, easy to follow"). Make it work on a stranger's machine.
-
-- **Demo video (2–5 min):** _FILL link_
-- **Live demo URL:** _FILL_
-- **Test credentials:** _FILL — a cooperative-admin login and a test member_
+> - **Demo video (2–5 min):** _Record against the happy path in §2 and upload_
+> - **Live demo URL:** _Deploy to Render/Vercel and fill in_
+> - **Test credentials:**
+>   - Admin: `08000000001` / `admin123`
+>   - Member: `08000000002` / `member123` (Fatima Bello — Band B)
+>   - Member: `08000000004` / `member123` (Aminu Garba — Band A, has loan history)
 - **Guided happy path** (reproduce the demo):
   1. Log in as the cooperative admin.
   2. Onboard a member → a virtual account is issued.
@@ -141,18 +166,47 @@ An assistant that (a) **explains each lending decision in plain language / local
 
 ### Local setup
 ```bash
-# 🔧 FILL — real, tested commands
-git clone <repo-url>
-cd <project>
-cp .env.example .env      # add your Monnify sandbox keys + AI key
-# install deps
-# run migrations / seed
-# start the app
+git clone https://github.com/[your-handle]/amana
+cd amana
+
+# Backend
+cd backend
+cp .env.example .env         # add your Monnify sandbox keys + Gemini key
+npm install
+npx prisma migrate dev --name init
+npx ts-node prisma/seed.ts
+npm run dev                  # runs on http://localhost:3001
+
+# Frontend (new terminal)
+cd ../frontend
+npm install
+npm run dev                  # runs on http://localhost:3000
 ```
-**Prerequisites:** _FILL (runtime versions, a Monnify sandbox account, an AI API key)._
+**Prerequisites:** Node.js 20+, Monnify sandbox account (https://app.monnify.com), Gemini API key (https://aistudio.google.com/app/apikey).
+
+**Webhook testing locally:** `ngrok http 3001` → set the tunnel URL as your Monnify webhook endpoint.
 
 ## 12. Repo Structure
-> 🔧 **FILL:** short tree of the main folders.
+```
+amana/
+├── backend/
+│   ├── prisma/          # schema.prisma + seed.ts
+│   ├── src/
+│   │   ├── lib/         # prisma.ts, jwt.ts
+│   │   ├── middleware/  # auth.ts, errorHandler.ts
+│   │   ├── routes/      # auth, members, loans, webhooks, assistant
+│   │   ├── services/    # monnify.ts, scoring.ts, ai.ts
+│   │   └── index.ts
+│   ├── .env.example
+│   └── package.json
+├── frontend/
+│   └── src/
+│       ├── app/         # Next.js App Router pages
+│       ├── components/  # ScoreGauge, ScoreBand, StatusBadge, Sidebar
+│       └── lib/         # api.ts, auth.ts, utils.ts
+├── .gitignore
+└── README.md
+```
 
 ## 13. Roadmap
 Post-hackathon: harden the scoring model as real repayment data accumulates, expand across a cooperative network, and open the credit-identity layer to partner lenders — turning verified cooperative behaviour into formal credit access.

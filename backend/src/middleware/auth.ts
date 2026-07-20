@@ -1,46 +1,38 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../lib/jwt';
+import { verifyToken, JWTPayload } from '../lib/jwt';
 
-export interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    role: string;
-  };
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JWTPayload;
+      rawBody?: string;
+    }
+  }
 }
 
-export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Missing or invalid token' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const decoded = verifyToken(token);
-    
-    req.user = {
-      userId: decoded.userId,
-      role: decoded.role,
-    };
-    
-    next();
-  } catch (error) {
-    return res.status(401).json({ success: false, error: 'Unauthorized: Invalid token' });
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    res.status(401).json({ success: false, error: 'Authentication required' });
+    return;
   }
-};
 
-export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const token = authHeader.split(' ')[1];
   try {
-    if (!req.user) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Not logged in' });
-    }
-    
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'Forbidden: Admin access required' });
-    }
-    
+    const payload = verifyToken(token);
+    req.user = payload;
     next();
-  } catch (error) {
-    next(error);
+  } catch {
+    res.status(401).json({ success: false, error: 'Invalid or expired token' });
   }
-};
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  requireAuth(req, res, () => {
+    if (req.user?.role !== 'admin') {
+      res.status(403).json({ success: false, error: 'Admin access required' });
+      return;
+    }
+    next();
+  });
+}
