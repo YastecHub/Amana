@@ -2,11 +2,11 @@ services:
   - type: web
     name: amana-api
     runtime: node
-    region: frankfurt          # closest to Nigeria
+    region: frankfurt
     plan: free
-    rootDir: backend
-    buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: node dist/index.js
+    rootDir: .
+    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend exec prisma migrate deploy && npm --prefix backend run build
+    startCommand: node backend/dist/index.js
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
@@ -16,9 +16,9 @@ services:
       - key: DATABASE_URL
         value: file:./prod.db
       - key: JWT_SECRET
-        generateValue: true    # Render auto-generates a secure random value
+        generateValue: true
       - key: FRONTEND_URL
-        sync: false            # Set this in Render dashboard to your Vercel URL
+        sync: false
       - key: MONNIFY_API_KEY
         sync: false
       - key: MONNIFY_SECRET_KEY
@@ -32,4 +32,4 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: API_BASE_URL
-        sync: false            # Set to your Render service URL, e.g. https://amana-api.onrender.com
+        sync: false
