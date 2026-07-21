@@ -12,6 +12,7 @@ import webhookRoutes from './routes/webhooks';
 import assistantRoutes from './routes/assistant';
 import { errorHandler } from './middleware/errorHandler';
 import { swaggerSpec } from './lib/swagger';
+import { ensureSeedData } from './lib/seed';
 
 dotenv.config();
 
@@ -111,7 +112,16 @@ app.use('/api/assistant', assistantRoutes);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
+(async () => {
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      await ensureSeedData();
+      console.log('✅ Production seed data ensured.');
+    } catch (error) {
+      console.error('Seed error:', error);
+    }
+  }
+})();
 // ── Global Error Handler ────────────────────────────────────────────────────
 app.use(errorHandler);
 
