@@ -33,17 +33,30 @@ app.use(
   })
 );
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'https://amana1.vercel.app',
-].filter(Boolean) as string[];
+const allowedOriginPatterns = [
+  /^https:\/\/amana.*\.vercel\.app$/,   // all Vercel preview & production URLs
+  /^https:\/\/amana-green\.vercel\.app$/,
+  /^http:\/\/localhost:\d+$/,           // any localhost port
+];
+
+const extraOrigins = (process.env.FRONTEND_URL ?? '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true; // curl / Postman / Swagger
+  if (extraOrigins.includes(origin)) return true;
+  return allowedOriginPatterns.some(re => re.test(origin));
+}
+
+// Handle preflight before helmet so headers aren't stripped
+app.options('*', cors({ origin: isOriginAllowed, credentials: true }));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (curl, Swagger UI, Postman)
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         callback(new Error(`CORS: origin ${origin} not allowed`));
