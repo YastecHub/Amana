@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Cooperative {
+  id                 String   @id @default(cuid())
+  name               String
+  adminUserId        String
+  contributionAmount Float    @default(5000)
+  cycle              String   @default("monthly")
+  maxLoanMultiple    Int      @default(3)
+  createdAt          DateTime @default(now())
+  adminUser          User     @relation(fields: [adminUserId], references: [id])
+  members            Member[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  role         String
+  name         String
+  phone        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  cooperatives Cooperative[]
+  member       Member?
+}
+
+model Member {
+  id            String          @id @default(cuid())
+  cooperativeId String
+  userId        String          @unique
+  bvnStatus     String          @default("pending")
+  joinDate      DateTime        @default(now())
+  status        String          @default("active")
+  cooperative   Cooperative     @relation(fields: [cooperativeId], references: [id])
+  user          User            @relation(fields: [userId], references: [id])
+  virtualAccount VirtualAccount?
+  contributions  Contribution[]
+  loans          Loan[]
+  scores         Score[]
+}
+
+model VirtualAccount {
+  id                      String   @id @default(cuid())
+  memberId                String   @unique
+  monnifyAccountReference String   @unique
+  accountNumber           String
+  bankName                String
+  bankCode                String   @default("000")
+  createdAt               DateTime @default(now())
+  member                  Member   @relation(fields: [memberId], references: [id])
+}
+
+model Contribution {
+  id            String   @id @default(cuid())
+  memberId      String
+  amount        Float
+  paidAt        DateTime @default(now())
+  monnifyTxnRef String   @unique
+  narration     String   @default("")
+  status        String   @default("confirmed")
+  member        Member   @relation(fields: [memberId], references: [id])
+}
+
+model Loan {
+  id              String      @id @default(cuid())
+  memberId        String
+  principal       Float
+  status          String      @default("requested")
+  scoreAtDecision Float?
+  breakdownJson   String      @default("{}")
+  disbursementRef String?     @unique
+  aiExplanation   String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  member          Member      @relation(fields: [memberId], references: [id])
+  repayments      Repayment[]
+}
+
+model Repayment {
+  id     String    @id @default(cuid())
+  loanId String
+  amount Float
+  dueDate DateTime?
+  paidAt  DateTime?
+  status  String    @default("pending")
+  loan    Loan      @relation(fields: [loanId], references: [id])
+}
+
+model Score {
+  id            String   @id @default(cuid())
+  memberId      String
+  value         Float
+  band          String
+  breakdownJson String   @default("{}")
+  label         String   @default("")
+  computedAt    DateTime @default(now())
+  member        Member   @relation(fields: [memberId], references: [id])
+}
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  monnifyRef  String   @unique
+  eventType   String
+  payloadJson String
+  processedAt DateTime @default(now())
+}

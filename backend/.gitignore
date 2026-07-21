@@ -1,0 +1,18 @@
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log

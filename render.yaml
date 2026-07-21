@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: amana-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: .
+    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend exec prisma migrate deploy && npm --prefix backend run build
+    startCommand: node backend/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: file:./prod.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: MONNIFY_API_KEY
+        sync: false
+      - key: MONNIFY_SECRET_KEY
+        sync: false
+      - key: MONNIFY_CONTRACT_CODE
+        sync: false
+      - key: MONNIFY_WALLET_ACCOUNT_NUMBER
+        sync: false
+      - key: MONNIFY_BASE_URL
+        value: https://sandbox.monnify.com
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: API_BASE_URL
+        value: https://amana-m8kf.onrender.com

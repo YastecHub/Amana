@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+/* ── Design Tokens ──────────────────────────────────────────────────────────
+   Tailwind v4: all theme customisation lives here via @theme.
+   These replace tailwind.config.ts entirely.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  /* Font */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand — Teal palette */
+  --color-brand-50:  #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  /* Score band colours (used in dynamic classes — must be in theme) */
+  --color-score-a-bg:   #dcfce7;  /* green-100  */
+  --color-score-a-text: #15803d;  /* green-700  */
+  --color-score-b-bg:   #dbeafe;  /* blue-100   */
+  --color-score-b-text: #1d4ed8;  /* blue-700   */
+  --color-score-c-bg:   #fef3c7;  /* amber-100  */
+  --color-score-c-text: #b45309;  /* amber-700  */
+  --color-score-d-bg:   #fee2e2;  /* red-100    */
+  --color-score-d-text: #b91c1c;  /* red-700    */
+}
+
+/* ── CSS Variables (shadcn/ui compatible) ───────────────────────────────────
+   Referenced by component classes. Using actual colour values (not hsl()
+   without units) so Tailwind v4 can consume them directly.
+   ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --background:         #f8f9fa;
+  --foreground:         #111827;
+
+  --card:               #ffffff;
+  --card-foreground:    #111827;
+
+  --popover:            #ffffff;
+  --popover-foreground: #111827;
+
+  --primary:            #0d9488;
+  --primary-foreground: #f0fdfa;
+
+  --secondary:          #f3f4f6;
+  --secondary-foreground: #1f2937;
+
+  --muted:              #f3f4f6;
+  --muted-foreground:   #6b7280;
+
+  --accent:             #f3f4f6;
+  --accent-foreground:  #1f2937;
+
+  --destructive:        #dc2626;
+  --destructive-foreground: #fef2f2;
+
+  --border:             #e5e7eb;
+  --input:              #e5e7eb;
+  --ring:               #0d9488;
+
+  --radius:             0.5rem;
+}
+
+.dark {
+  --background:         #0f172a;
+  --foreground:         #f8fafc;
+  --card:               #1e293b;
+  --card-foreground:    #f8fafc;
+  --popover:            #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary:            #14b8a6;
+  --primary-foreground: #022c22;
+  --secondary:          #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted:              #1e293b;
+  --muted-foreground:   #94a3b8;
+  --accent:             #1e293b;
+  --accent-foreground:  #f8fafc;
+  --destructive:        #ef4444;
+  --destructive-foreground: #fef2f2;
+  --border:             #334155;
+  --input:              #334155;
+  --ring:               #14b8a6;
+}
+
+/* ── Base Resets ────────────────────────────────────────────────────────────
+   Avoid @apply for CSS-variable-based utilities in Tailwind v4.
+   Use plain CSS instead.
+   ─────────────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  border-color: var(--border);
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Utilities ──────────────────────────────────────────────────────────────*/
+.mono-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Score Gauge Animation ──────────────────────────────────────────────────*/
+@keyframes gauge-fill {
+  from { stroke-dashoffset: 283; }
+  to   { stroke-dashoffset: var(--target, 0); }
+}
+
+.gauge-circle {
+  animation: gauge-fill 1s ease-out forwards;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────*/
+::-webkit-scrollbar         { width: 6px; height: 6px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Safelist helpers (dynamic band classes used in ScoreBand.tsx) ──────────
+   These are referenced via inline style / className strings so must exist.  */
+.band-a-bg  { background-color: var(--color-score-a-bg);   color: var(--color-score-a-text); }
+.band-b-bg  { background-color: var(--color-score-b-bg);   color: var(--color-score-b-text); }
+.band-c-bg  { background-color: var(--color-score-c-bg);   color: var(--color-score-c-text); }
+.band-d-bg  { background-color: var(--color-score-d-bg);   color: var(--color-score-d-text); }
