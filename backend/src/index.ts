@@ -112,21 +112,25 @@ app.use('/api/assistant', assistantRoutes);
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-(async () => {
-  if (process.env.NODE_ENV === 'production') {
-    try {
-      await ensureSeedData();
-      console.log('✅ Production seed data ensured.');
-    } catch (error) {
-      console.error('Seed error:', error);
-    }
-  }
-})();
+
 // ── Global Error Handler ────────────────────────────────────────────────────
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\n🚀 Amana API running on port ${PORT}`);
-  console.log(`📖 Swagger UI → /api/docs`);
-  console.log(`📄 OpenAPI JSON → /api/docs.json\n`);
-});
+(async () => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      console.log('🌱 Seeding production database...');
+      await ensureSeedData();
+      console.log('✅ Production seed data ensured.');
+    }
+
+    app.listen(PORT, () => {
+      console.log(`\n🚀 Amana API running on port ${PORT}`);
+      console.log(`📖 Swagger UI → /api/docs`);
+      console.log(`📄 OpenAPI JSON → /api/docs.json\n`);
+    });
+  } catch (error) {
+    console.error('❌ Startup error:', error);
+    process.exit(1);
+  }
+})();

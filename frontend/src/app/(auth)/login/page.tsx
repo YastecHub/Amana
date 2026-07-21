@@ -22,8 +22,10 @@ export default function LoginPage() {
       setUser(res.user);
       toast.success('Welcome back!');
       router.push('/dashboard');
-    } catch (err) {
-      toast.error('Invalid phone or password');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      const errMsg = err?.response?.data?.error || err?.message || 'Invalid phone or password';
+      toast.error(errMsg);
       setLoading(false);
     }
   };
