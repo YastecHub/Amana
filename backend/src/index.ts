@@ -34,9 +34,10 @@ app.use(
 );
 
 const allowedOriginPatterns = [
-  /^https:\/\/amana.*\.vercel\.app$/,   // all Vercel preview & production URLs
+  /^https:\/\/amana.*\.vercel\.app$/, 
   /^https:\/\/amana-green\.vercel\.app$/,
-  /^http:\/\/localhost:\d+$/,           // any localhost port
+  /^http:\/\/localhost:\d+$/,
+  /^https:\/\/amana-m8kf\.onrender\.com$/
 ];
 
 const extraOrigins = (process.env.FRONTEND_URL ?? '')
