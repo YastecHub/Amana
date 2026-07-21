@@ -36,7 +36,7 @@ app.use(
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'http://localhost:3000',
-  'https://amana-app.vercel.app',
+  'https://amana1.vercel.app',
 ].filter(Boolean) as string[];
 
 app.use(
