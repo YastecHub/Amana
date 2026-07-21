@@ -5,7 +5,7 @@ services:
     region: frankfurt
     plan: free
     rootDir: .
-    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend run db:migrate && npm --prefix backend run build
+    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend run db:migrate && npm --prefix backend run db:seed && npm --prefix backend run build
     startCommand: node backend/dist/index.js
     healthCheckPath: /health
     envVars:
