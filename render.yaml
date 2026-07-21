@@ -5,7 +5,7 @@ services:
     region: frankfurt
     plan: free
     rootDir: .
-    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend exec prisma migrate deploy && npm --prefix backend run build
+    buildCommand: npm --prefix backend install && npm --prefix backend exec prisma generate && npm --prefix backend run db:migrate && npm --prefix backend run db:seed && npm --prefix backend run build
     startCommand: node backend/dist/index.js
     healthCheckPath: /health
     envVars:
@@ -13,8 +13,8 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: DATABASE_URL
-        value: file:./prod.db
+      - key: MONGODB_URI
+        value: "mongodb+srv://<user>:<password>@cluster0.mongodb.net/amana?retryWrites=true&w=majority"
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL

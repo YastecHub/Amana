@@ -23,18 +23,22 @@ async function main() {
   console.log('✓ Admin user created:', admin.name);
 
   // 2. Create Cooperative
-  const cooperative = await prisma.cooperative.upsert({
-    where: { id: 'coop-amana-001' },
-    update: {},
-    create: {
-      id: 'coop-amana-001',
-      name: 'Amana Cooperative Society',
-      adminUserId: admin.id,
-      contributionAmount: 5000,
-      cycle: 'monthly',
-      maxLoanMultiple: 3,
-    },
+  let cooperative = await prisma.cooperative.findFirst({
+    where: { name: 'Amana Cooperative Society' },
   });
+
+  if (!cooperative) {
+    cooperative = await prisma.cooperative.create({
+      data: {
+        name: 'Amana Cooperative Society',
+        adminUserId: admin.id,
+        contributionAmount: 5000,
+        cycle: 'monthly',
+        maxLoanMultiple: 3,
+      },
+    });
+  }
+
   console.log('✓ Cooperative created:', cooperative.name);
 
   // 3. Create Demo Members

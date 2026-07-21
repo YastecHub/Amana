@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getToken, clearToken } from './auth';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const baseURL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export const api = axios.create({
   baseURL,
