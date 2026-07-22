@@ -19,8 +19,41 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ── Security & Logging ─────────────────────────────────────────────────────
-// Relax helmet's CSP for Swagger UI (needs inline scripts)
+// ── CORS — must be first, before helmet ────────────────────────────────────
+const allowedOriginPatterns = [
+  /^https:\/\/.*\.vercel\.app$/,      // all Vercel preview & production URLs
+  /^http:\/\/localhost:\d+$/,         // any localhost port for local dev
+];
+
+const extraOrigins = (process.env.FRONTEND_URL ?? '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true; // curl / Postman / Swagger — no origin header
+  if (extraOrigins.includes(origin)) return true;
+  return allowedOriginPatterns.some(re => re.test(origin));
+}
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+// Handle preflight OPTIONS requests BEFORE any other middleware
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
+
+// ── Security & Logging (after CORS) ────────────────────────────────────────
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -31,40 +64,7 @@ app.use(
         imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
-  })
-);
-
-const allowedOriginPatterns = [
-  /^https:\/\/amana.*\.vercel\.app$/, 
-  /^https:\/\/amana-green\.vercel\.app$/,
-  /^http:\/\/localhost:\d+$/,
-  /^https:\/\/amana-m8kf\.onrender\.com$/
-];
-
-const extraOrigins = (process.env.FRONTEND_URL ?? '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean);
-
-function isOriginAllowed(origin: string | undefined): boolean {
-  if (!origin) return true; // curl / Postman / Swagger
-  if (extraOrigins.includes(origin)) return true;
-  return allowedOriginPatterns.some(re => re.test(origin));
-}
-
-// Handle preflight before helmet so headers aren't stripped
-app.options('*', cors({ origin: isOriginAllowed, credentials: true }));
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (isOriginAllowed(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: origin ${origin} not allowed`));
-      }
-    },
-    credentials: true,
+    crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow cross-origin responses
   })
 );
 
