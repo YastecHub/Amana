@@ -52,43 +52,43 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-brand-50 text-brand-600 rounded-lg"><Users className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Members</p>
-              <h3 className="text-2xl font-bold text-gray-900">{membersList.length}</h3>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-brand-50 text-brand-600 rounded-lg shrink-0"><Users className="w-6 h-6" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-500 leading-tight break-words">Total Members</p>
+              <h3 className="text-2xl font-bold text-gray-900 break-words">{membersList.length}</h3>
             </div>
           </div>
         </div>
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-green-50 text-green-600 rounded-lg"><Wallet className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Contributions</p>
-              <h3 className="text-2xl font-bold text-gray-900 tabular-nums">{formatNaira(totalSaved)}</h3>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-green-50 text-green-600 rounded-lg shrink-0"><Wallet className="w-6 h-6" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-500 leading-tight break-words">Total Contributions</p>
+              <h3 className="text-xl lg:text-2xl font-bold text-gray-900 tabular-nums break-words">{formatNaira(totalSaved)}</h3>
             </div>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg"><CreditCard className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Active Loans</p>
-              <h3 className="text-2xl font-bold text-gray-900">{activeLoans}</h3>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg shrink-0"><CreditCard className="w-6 h-6" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-500 leading-tight break-words">Active Loans</p>
+              <h3 className="text-2xl font-bold text-gray-900 break-words">{activeLoans}</h3>
             </div>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-4">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg"><Clock className="w-6 h-6" /></div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">Pending Requests</p>
-              <h3 className="text-2xl font-bold text-gray-900">{pendingLoans}</h3>
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg shrink-0"><Clock className="w-6 h-6" /></div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-500 leading-tight break-words">Pending Requests</p>
+              <h3 className="text-2xl font-bold text-gray-900 break-words">{pendingLoans}</h3>
             </div>
           </div>
         </div>
@@ -102,12 +102,12 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {membersList.slice(0, 5).map(m => (
-              <div key={m.id} className="p-4 px-6 flex items-center justify-between hover:bg-gray-50">
-                <div>
+              <div key={m.id} className="p-4 px-6 flex items-center justify-between gap-3 hover:bg-gray-50">
+                <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{m.name}</p>
                   <p className="text-sm text-gray-500">Joined {formatDate(m.joinDate)}</p>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center gap-3 shrink-0">
                   <ScoreBand band={m.band} />
                   <Link href={`/members/${m.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-800">View</Link>
                 </div>
@@ -124,12 +124,12 @@ export default function DashboardPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {loansList.slice(0, 5).map(l => (
-              <div key={l.id} className="p-4 px-6 flex items-center justify-between hover:bg-gray-50">
-                <div>
+              <div key={l.id} className="p-4 px-6 flex items-center justify-between gap-3 hover:bg-gray-50">
+                <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{l.memberName}</p>
-                  <p className="text-sm text-gray-500 tabular-nums">{formatNaira(l.principal)}</p>
+                  <p className="text-sm text-gray-500 tabular-nums break-words">{formatNaira(l.principal)}</p>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center gap-3 shrink-0">
                   <StatusBadge status={l.status} />
                   <Link href={`/loans/${l.id}`} className="text-sm font-medium text-brand-600 hover:text-brand-800">View</Link>
                 </div>
